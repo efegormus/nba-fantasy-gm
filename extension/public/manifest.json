@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Fantasy NBA GM",
+  "version": "0.1.0",
+  "description": "Local, read-only fantasy league companion. No Yahoo data collection.",
+  "permissions": ["storage"],
+  "host_permissions": ["http://127.0.0.1:8000/*"],
+  "background": {"service_worker": "background.js"},
+  "options_page": "options.html",
+  "content_scripts": [{"matches": ["https://basketball.fantasysports.yahoo.com/nba/*"], "js": ["content.js"]}],
+  "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'self'"}
+}

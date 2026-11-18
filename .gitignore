@@ -1,0 +1,14 @@
+.env
+.venv/
+.bootstrap/
+.node/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+*.db
+*.db-*
+data/imports/
+data/cache/
+node_modules/
+extension/dist/

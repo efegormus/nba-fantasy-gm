@@ -1,0 +1,6 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fantasy GM · Pair locally</title>
+<body style="font:16px/1.6 system-ui;max-width:650px;margin:60px auto;padding:24px"><h1>Pair Fantasy NBA GM</h1>
+<p>Enter the local API token from your own .env file. Never enter a Yahoo password or session token.</p>
+<p>Add this extension origin to ALLOWED_ORIGINS in .env, then restart the backend:</p><code id="origin"></code>
+<form id="pair"><p><label>Local API token <input id="token" type="password" minlength="32" required autocomplete="off"></label></p><button>Save pairing</button></form>
+<p id="status" role="status"></p><p>The configured league URL syncs from the local backend. Default: Yahoo league 210163.</p><script type="module" src="/src/options.ts"></script></body></html>
