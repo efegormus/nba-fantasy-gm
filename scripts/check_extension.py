@@ -1,4 +1,5 @@
 """Verify the unpacked manifest and self-contained browser bundles after npm build."""
+
 import json
 from pathlib import Path
 

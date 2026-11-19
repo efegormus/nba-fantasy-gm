@@ -1,0 +1,23 @@
+# Fantasy GM agent workflow
+
+The workflow operates on the selected league and mode. Its four read-only tools inspect setup/freshness, compare waiver alternatives, evaluate mutually beneficial one-for-one trades, and present imported news evidence. No tool changes Yahoo or local league configuration.
+
+By default a deterministic coordinator executes all four checks. This is explicitly labeled as a workflow, not LLM AI. If the user enables a locally installed Ollama model, a bounded tool-calling loop can choose tool order and inspect results. Missing checks are completed deterministically. Only zero-argument allowlisted tools are accepted; the model cannot select a different league or mode. Repeated calls reuse results. Invalid calls trigger a safe fallback.
+
+The [official Ollama tool-calling protocol](https://docs.ollama.com/capabilities/tool-calling) supplies assistant tool calls and tool-result messages over `/api/chat`. We use the local HTTP endpoint, no paid SDK, no cloud host and no automatic model download. Tests mock the protocol; a real installed model is still required to verify inference end to end.
+
+## Numerical methods
+
+For each imported team, aggregate all nine categories, including volume-weighted FG% and FT%. Across those team totals, compute each category's population mean and standard deviation. Categories with no variation or undefined percentages are excluded. Reverse the sign for turnovers. Each team's three lowest standardized categories define its current heuristic needs.
+
+For an add/drop pair, recalculate the managed roster and sum category deltas divided by the corresponding population standard deviations over those needs. Positive values become provisional candidates. For a trade, perform the same calculation independently for both teams; retain only swaps with positive gains on both sides. This score is a ranking heuristic, not a probability, projection or guarantee. Team size, punts and accumulated statistical horizons can materially change its usefulness.
+
+The waiver search is capped at 400 available players and 100 managed roster players; trade search at 10,000 pairs. Reports disclose truncation. The top five alternatives are returned, with exact category deltas and risks. The user must compare alternatives rather than execute them all.
+
+## Evidence and limits
+
+Move tools block missing/stale/aging data, unsupported scoring, missing team selection, missing stats or missing shared statistical horizon. A configured zero acquisition limit blocks adds. Other legality constraints are not yet enforced and every candidate remains provisional.
+
+News reports require a player reference, URL and publication timestamp. User-marked verification is not independent verification. The workflow does not infer playing-time changes, recovery dates or current availability from a headline.
+
+Only tool-generated structured results are displayed. Model-generated prose is not promoted into facts or recommendations. Persistent memory, durable run history, live monitoring and richer adaptive planning are future work.
