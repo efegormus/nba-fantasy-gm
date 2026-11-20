@@ -5,7 +5,9 @@ import math
 from datetime import datetime, timezone
 import httpx
 from .analytics import category_totals
-from .schemas import CATEGORIES, Snapshot
+from .schemas import CATEGORIES, Rules, Snapshot
+from .legality import acquisition_check, roster_check
+from .news import news_review
 
 TOOL_NAMES = ("inspect_league", "waiver_scout", "trade_analyzer", "news_monitor")
 
@@ -94,19 +96,28 @@ class GMTools:
     def waiver_scout(self):
         if reason := self.prerequisites():
             return {"status": "blocked", "reason": reason, "candidates": []}
-        if self.status["setup"]["rules"]["weekly_acquisition_limit"] == 0:
+        rules = Rules.model_validate(self.status["setup"]["rules"])
+        managed = next(t for t in self.snapshot.teams if t.id == self.team_id)
+        acquisitions = acquisition_check(managed, rules)
+        if acquisitions["status"] == "infeasible":
             return {
                 "status": "blocked",
-                "reason": "Configured acquisition limit is zero.",
+                "reason": acquisitions["reason"],
+                "checks": {"acquisitions": acquisitions},
                 "candidates": [],
             }
         rosters, totals, scales, needs = self.context()
         mine = rosters[self.team_id]
         available = [p for p in self.snapshot.players if p.availability in ("free_agent", "waiver")]
-        results = []
+        results, rejected = [], 0
         for candidate in available[:400]:
             for drop in mine[:100]:
-                after = category_totals([p for p in mine if p.id != drop.id] + [candidate])
+                changed = [p for p in mine if p.id != drop.id] + [candidate]
+                fit = roster_check(changed, rules)
+                if fit["status"] == "infeasible":
+                    rejected += 1
+                    continue
+                after = category_totals(changed)
                 delta = self.impact(totals[self.team_id], after)
                 score = self.utility(delta, scales, needs[self.team_id])
                 if score > 0:
@@ -117,6 +128,7 @@ class GMTools:
                             "add_name": candidate.name,
                             "drop_name": drop.name,
                             "availability_at_import": candidate.availability,
+                            "checks": {"roster": fit, "acquisitions": acquisitions},
                             "category_changes": delta,
                             "heuristic_gain": score,
                             "provisional": True,
@@ -126,17 +138,19 @@ class GMTools:
         return {
             "status": "evaluated",
             "target_categories": needs[self.team_id],
+            "rejected_roster_pairs": rejected,
             "candidates": results[:5],
             "search_truncated": len(available) > 400 or len(mine) > 100,
             "method": "Prioritize the three weakest standardized categories versus imported team totals.",
-            "risk": "Alternatives, not a combined plan. Descriptive stats are not projections. Schedule, positional legality, waiver priority and acquisitions already used are not evaluated; confirm in Yahoo.",
+            "risk": "Alternatives, not a combined plan. Descriptive stats are not projections. Imported roster fit and acquisition usage are checked when known. Schedule locks, pending transactions and waiver priority are not evaluated; confirm in Yahoo.",
         }
 
     def trade_analyzer(self):
         if reason := self.prerequisites():
             return {"status": "blocked", "reason": reason, "candidates": []}
         rosters, totals, scales, needs = self.context()
-        results, examined = [], 0
+        rules = Rules.model_validate(self.status["setup"]["rules"])
+        results, examined, rejected = [], 0, 0
         for team, theirs in rosters.items():
             if team == self.team_id:
                 continue
@@ -145,6 +159,15 @@ class GMTools:
                     if examined >= 10000:
                         break
                     examined += 1
+                    mine_after = [p for p in rosters[self.team_id] if p.id != offer.id] + [request]
+                    theirs_after = [p for p in theirs if p.id != request.id] + [offer]
+                    my_fit, their_fit = (
+                        roster_check(mine_after, rules),
+                        roster_check(theirs_after, rules),
+                    )
+                    if "infeasible" in (my_fit["status"], their_fit["status"]):
+                        rejected += 1
+                        continue
                     my_delta = self.impact(
                         totals[self.team_id],
                         category_totals(
@@ -161,6 +184,7 @@ class GMTools:
                         results.append(
                             {
                                 "partner_team_id": team,
+                                "checks": {"your_roster": my_fit, "partner_roster": their_fit},
                                 "offer": offer.id,
                                 "request": request.id,
                                 "offer_name": offer.name,
@@ -177,19 +201,14 @@ class GMTools:
             "status": "evaluated",
             "candidates": results[:5],
             "pairs_examined": examined,
+            "rejected_roster_pairs": rejected,
             "search_truncated": examined >= 10000,
             "method": "One-for-one swaps improving both teams' three weakest standardized categories.",
-            "risk": "Heuristic ideas only; not acceptance probabilities. Positions, schedules and trade restrictions are not evaluated. Alternatives may conflict.",
+            "risk": "Heuristic ideas only; not acceptance probabilities. Imported roster fit is checked for both teams when known. Schedule locks and trade restrictions are not evaluated. Alternatives may conflict.",
         }
 
     def news_monitor(self):
-        if not self.snapshot:
-            return {"status": "unavailable", "events": [], "reason": "No league snapshot imported."}
-        return {
-            "status": "imported_reports" if self.snapshot.news else "unavailable",
-            "events": [event.model_dump(mode="json") for event in self.snapshot.news],
-            "reason": "User-imported reports only, not independently verified. No live news feed or inferred injury recovery dates.",
-        }
+        return news_review(self.snapshot, self.team_id, self.status["freshness"])
 
 
 def run_workflow(tools: GMTools, settings, question: str, use_local_ai: bool = False, chat=None):

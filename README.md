@@ -13,10 +13,10 @@ The main product is the Streamlit **GM Workspace**, backed by FastAPI and SQLite
 - Correct aggregate FG% / FT%, turnover direction and missing-stat handling.
 - **Waiver scout:** compares add/drop alternatives using the managed team's three weakest standardized categories.
 - **Trade analyzer:** checks one-for-one swaps for positive heuristic value to both teams.
-- **News monitor:** shows imported, source-linked reports with publication times and verification labels. It does not fetch live news or infer recovery dates.
+- **News monitor:** turns fresh, explicitly typed, user-verified reports into source-linked lineup/role checks or waiver monitoring. Conflicting, stale or unverified latest reports withhold follow-ups. It does not fetch live news or infer recovery dates.
 - **GM workflow:** collects evidence, records tool execution, and displays provisional results. Reports persist with their original snapshot, goal, selected team, rules and workflow version; review them in **Analysis history**. Optional local tool calling cannot execute transactions or change league data.
 
-Move analysis uses imported statistics, not forecasts or win probabilities. It requires fresh data, a selected team, complete player stats and a declared common `stats_horizon`. It does not yet validate positional legality, schedule effects, acquisition usage, waiver priority or trade restrictions. All move ideas are provisional alternatives, not a combined executable plan.
+Move analysis uses imported statistics, not forecasts or win probabilities. It requires fresh data, a selected team, complete player stats and a declared common `stats_horizon`. It checks roster-slot fit for both trade partners and imported acquisition usage within the declared current period. Impossible rosters and exhausted acquisition limits are excluded; unknown eligibility/rules remain unknown. It does not yet validate schedule locks, pending transactions, waiver priority or trade restrictions. All move ideas are provisional alternatives, not a combined executable plan.
 
 ## Setup (macOS / Windows)
 
@@ -113,6 +113,6 @@ Load `extension/dist` using Chrome's Load unpacked. Its Options page shows the e
 
 No Yahoo credentials, session extraction, DOM scraping, automatic transactions or paid AI APIs. The backend must bind to loopback. Private `.env`, databases and imports are ignored by Git. If the dashboard is offline, check the API process; if authorization fails, check the local token and allowed origins.
 
-The snapshot schema is not yet a normalized historical analytics warehouse. No scheduler, Telegram delivery, live news/NBA feed, matchup simulator or approved Yahoo OAuth integration exists. The news workflow currently reports evidence rather than generating injury opportunity recommendations.
+The snapshot schema is not yet a normalized historical analytics warehouse. No scheduler, Telegram delivery, live news/NBA feed, matchup simulator or approved Yahoo OAuth integration exists. News follow-ups are source-linked checks and monitoring prompts, not inferred replacements or numerical injury boosts.
 
 See [roadmap](docs/ROADMAP.md), [architecture](docs/ARCHITECTURE.md), and [security notes](docs/SECURITY.md).

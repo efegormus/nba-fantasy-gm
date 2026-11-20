@@ -42,7 +42,22 @@ class LeagueSetup(StrictModel):
         return value.strip().rstrip("/")
 
 
+class AcquisitionUsage(StrictModel):
+    used: int = Field(ge=0)
+    period_start: datetime
+    period_end: datetime
+
+    @model_validator(mode="after")
+    def valid_period(self):
+        if self.period_start.tzinfo is None or self.period_end.tzinfo is None:
+            raise ValueError("Acquisition period boundaries require timezones")
+        if self.period_start >= self.period_end:
+            raise ValueError("Acquisition period end must follow its start")
+        return self
+
+
 class Team(StrictModel):
+    acquisitions: AcquisitionUsage | None = None
     id: str = Field(min_length=1, max_length=100)
     name: str = Field(min_length=1, max_length=200)
 
@@ -74,7 +89,10 @@ class Player(StrictModel):
     name: str = Field(min_length=1, max_length=200)
     yahoo_id: str | None = None
     nba_id: str | None = None
-    positions: list[str] = Field(default_factory=list)
+    positions: list[Literal["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"]] = Field(
+        default_factory=list
+    )
+    injury_slots_eligible: list[Literal["IL", "IL+"]] | None = None
     team_id: str | None = None
     availability: Literal["rostered", "free_agent", "waiver"]
     stats: Stats | None = None
@@ -87,6 +105,14 @@ class Player(StrictModel):
 
 
 class NewsEvent(StrictModel):
+    event_type: Literal[
+        "OTHER",
+        "PLAYER_OUT",
+        "PLAYER_QUESTIONABLE",
+        "PLAYER_RETURN",
+        "ROLE_INCREASE",
+        "ROLE_DECREASE",
+    ] = "OTHER"
     id: str = Field(min_length=1, max_length=100)
     player_id: str
     headline: str = Field(min_length=1, max_length=500)
@@ -123,11 +149,20 @@ class Snapshot(StrictModel):
         for values, label in [(self.teams, "team"), (self.players, "player")]:
             if len({v.id for v in values}) != len(values):
                 raise ValueError(f"Duplicate {label} IDs")
+        if any(event.published_at > self.effective_at for event in self.news):
+            raise ValueError("News cannot postdate the snapshot effective timestamp")
         players = {p.id for p in self.players}
         if len({event.id for event in self.news}) != len(self.news):
             raise ValueError("Duplicate news event IDs")
         if any(event.player_id not in players for event in self.news):
             raise ValueError("News references an unknown player")
+        for team in self.teams:
+            if team.acquisitions and not (
+                team.acquisitions.period_start <= self.effective_at < team.acquisitions.period_end
+            ):
+                raise ValueError(
+                    "Acquisition usage period must contain the snapshot effective timestamp"
+                )
         teams = {t.id for t in self.teams}
         if any(p.team_id is not None and p.team_id not in teams for p in self.players):
             raise ValueError("Player references an unknown team")

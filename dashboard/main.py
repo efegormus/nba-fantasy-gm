@@ -65,6 +65,10 @@ def render_report(report, prefix="current"):
             st.caption(observation["risk"])
         for index, candidate in enumerate(observation.get("candidates", []), 1):
             with st.expander(f"Alternative {index} · Requires manual review", expanded=index == 1):
+                for check_name, check in candidate.get("checks", {}).items():
+                    st.caption(
+                        f"{check_name.replace('_', ' ').title()}: {check['status']} — {check['reason']}"
+                    )
                 if key == "waiver_scout":
                     st.text(f"Add {candidate['add_name']} · Drop {candidate['drop_name']}")
                     st.caption(f"Availability at import: {candidate['availability_at_import']}")
@@ -86,10 +90,26 @@ def render_report(report, prefix="current"):
                         hide_index=True,
                         key=f"{prefix}:trade:{index}",
                     )
+        if observation.get("rejected_roster_pairs"):
+            st.caption(
+                f"Excluded {observation['rejected_roster_pairs']} alternatives that cannot fit configured rosters."
+            )
         if observation.get("status") == "evaluated" and not observation.get("candidates"):
             st.write("No positive alternatives found by the current heuristic.")
         if observation.get("search_truncated"):
             st.caption("Search limit reached; some alternatives were not evaluated.")
+        for index, action in enumerate(observation.get("actions", []), 1):
+            st.text(f"{action['action'].replace('_', ' ').title()} · {action['player_name']}")
+            st.write(action["instruction"])
+            st.caption(
+                f"User-verified report · {action['published_at']} · Not independently verified"
+            )
+            st.link_button(
+                "Follow-up evidence", action["source_url"], key=f"{prefix}:action:{index}"
+            )
+        if observation.get("withheld"):
+            with st.expander("Reports needing verification or refresh"):
+                st.dataframe(observation["withheld"], hide_index=True, key=f"{prefix}:withheld")
         for event in observation.get("events", []):
             st.text(event["headline"])
             st.caption(
