@@ -4,7 +4,7 @@ from datetime import timezone
 from sqlalchemy import select
 from .storage import AgentRun, ImportSnapshot
 
-WORKFLOW_VERSION = "gm-tools-v2"
+WORKFLOW_VERSION = "gm-tools-v3"
 
 
 class RunHistory:

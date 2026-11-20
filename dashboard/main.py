@@ -49,6 +49,31 @@ def render_report(report, prefix="current"):
     if report["warning"]:
         st.warning(report["warning"])
     st.info(report["summary"])
+    review = report.get("decision_review")
+    if review:
+        st.markdown("#### What to check next")
+        for check in review["next_checks"]:
+            st.text(f"{check['action'].replace('_', ' ').title()}: {check['reason']}")
+        if not review["next_checks"]:
+            st.write(
+                "No additional input or news checks were flagged by these tools. Move ideas still require manual review."
+            )
+        if review["alternatives"]:
+            st.caption(review["notice"])
+            st.dataframe(
+                [
+                    {
+                        "ID": item["id"],
+                        "Alternative": item["summary"],
+                        "Conflicts with": ", ".join(item["conflicts_with"]) or "None identified",
+                        "News to review": ", ".join(item["news_evidence_ids"])
+                        or "No imported reports",
+                    }
+                    for item in review["alternatives"]
+                ],
+                hide_index=True,
+                key=f"{prefix}:decision-review",
+            )
     observations = report["observations"]
     for key, title in [
         ("waiver_scout", "Waiver / add-drop"),

@@ -15,6 +15,7 @@ A personal agentic Fantasy GM built around waiver/add-drop analysis, mutually be
 - Typed news follow-ups with recency, verification, conflict and snapshot-time checks
 - Bounded optional Ollama tool-selection loop with deterministic fallback
 - GM Workspace with readable move alternatives, execution trace and report download
+- Joint decision review with shared-player conflict flags, deduplicated input checks and news evidence links
 - Durable analysis history preserving original snapshot, settings, goal and workflow version, isolated by league/mode
 
 ## Next
@@ -23,7 +24,7 @@ A personal agentic Fantasy GM built around waiver/add-drop analysis, mutually be
 2. Import richer authorized statistics and schedules with explicit provenance and statistical horizons.
 3. Extend existing roster/acquisition checks to pending transactions, trade restrictions, schedule locks and machine-readable waiver rules.
 4. Add authorized news refresh and evidence for replacement/rotation opportunities beyond the existing typed-report follow-ups.
-5. Improve strategy customization, punt choices, conflict resolution and trade candidate quality.
+5. Improve strategy customization, punt choices, combined-plan feasibility beyond existing shared-player conflict flags, and trade candidate quality.
 6. Build reviewable multi-step plans and scoped conversational memory on the persisted run/evidence archive.
 7. Evaluate a locally installed tool-capable model on real user goals; improve planning without letting models invent numerical evidence.
 8. Add optional scheduling and deduplicated notifications only after decision quality is validated.

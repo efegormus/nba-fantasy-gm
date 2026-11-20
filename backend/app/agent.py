@@ -8,6 +8,7 @@ from .analytics import category_totals
 from .schemas import CATEGORIES, Rules, Snapshot
 from .legality import acquisition_check, roster_check
 from .news import news_review
+from .decision_review import decision_review
 
 TOOL_NAMES = ("inspect_league", "waiver_scout", "trade_analyzer", "news_monitor")
 
@@ -296,5 +297,6 @@ def run_workflow(tools: GMTools, settings, question: str, use_local_ai: bool = F
         "warning": warning,
         "trace": trace,
         "observations": observations,
+        "decision_review": decision_review(observations),
         "summary": "Review the evidence-backed tool results below. All move ideas are provisional and must be checked and executed manually.",
     }
