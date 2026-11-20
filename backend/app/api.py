@@ -1,7 +1,7 @@
 import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from .analytics import category_totals
@@ -12,6 +12,7 @@ from .providers import parse_import
 from .schemas import LeagueSetup, Mode, Snapshot
 from .service import LeagueService
 from .storage import database
+from .run_history import RunHistory
 
 
 class AgentRequest(BaseModel):
@@ -33,6 +34,7 @@ def create_app(settings: Settings | None = None, sessions=None) -> FastAPI:
         Path("data").mkdir(exist_ok=True)
         _, sessions = database(settings.database_url)
     service = LeagueService(sessions, settings)
+    history = RunHistory(sessions)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -111,9 +113,23 @@ def create_app(settings: Settings | None = None, sessions=None) -> FastAPI:
         record = service.latest(mode)
         status = service.status(mode, record=record)
         snapshot = Snapshot.model_validate(record.data) if record else None
-        return run_workflow(
+        report = run_workflow(
             GMTools(status, snapshot), settings, payload.question, payload.use_local_ai
         )
+        scope = "demo" if mode == "demo" else "real:" + status["league_id"]
+        saved = history.save(scope, record, status, payload.question, report)
+        return {**report, "run_id": saved.id, "snapshot_id": saved.snapshot_id}
+
+    @app.get("/api/v1/agent/runs", dependencies=[Depends(authorized)])
+    def agent_runs(mode: Mode = "real", limit: int = Query(default=20, ge=1, le=100)):
+        return {"runs": history.list(service.scope(mode), limit)}
+
+    @app.get("/api/v1/agent/runs/{run_id}", dependencies=[Depends(authorized)])
+    def agent_run_detail(run_id: int, mode: Mode = "real"):
+        result = history.detail(service.scope(mode), run_id)
+        if result is None:
+            raise HTTPException(404, "Run not found in the selected league and mode")
+        return result
 
     @app.get("/api/v1/recommendations", dependencies=[Depends(authorized)])
     def recommendations(mode: Mode = "real"):

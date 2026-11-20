@@ -14,7 +14,7 @@ The main product is the Streamlit **GM Workspace**, backed by FastAPI and SQLite
 - **Waiver scout:** compares add/drop alternatives using the managed team's three weakest standardized categories.
 - **Trade analyzer:** checks one-for-one swaps for positive heuristic value to both teams.
 - **News monitor:** shows imported, source-linked reports with publication times and verification labels. It does not fetch live news or infer recovery dates.
-- **GM workflow:** collects evidence, records tool execution, and displays provisional results. Optional local tool calling cannot execute transactions or change league data.
+- **GM workflow:** collects evidence, records tool execution, and displays provisional results. Reports persist with their original snapshot, goal, selected team, rules and workflow version; review them in **Analysis history**. Optional local tool calling cannot execute transactions or change league data.
 
 Move analysis uses imported statistics, not forecasts or win probabilities. It requires fresh data, a selected team, complete player stats and a declared common `stats_horizon`. It does not yet validate positional legality, schedule effects, acquisition usage, waiver priority or trade restrictions. All move ideas are provisional alternatives, not a combined executable plan.
 
@@ -76,13 +76,15 @@ OLLAMA_MODEL=your-installed-model-name
 
 Restart the backend and check **Use my configured local Ollama model** in GM Workspace. The application contacts only `127.0.0.1:11434`; it never downloads models. A run is limited to four model rounds, four calls per round, and four allowlisted read-only tools. Invalid calls or connection errors fall back to deterministic analysis.
 
-The model selects tools; all numerical results come from Python calculations. Free-form model prose is not shown as verified advice. Full autonomous planning, persistent agent memory, live monitoring and sophisticated strategy reasoning are future work. See [agent design](docs/AGENT_WORKFLOW.md).
+The model selects tools; all numerical results come from Python calculations. Free-form model prose is not shown as verified advice. Full autonomous planning, learned conversational memory, live monitoring and sophisticated strategy reasoning are future work. Saved run history is an evidence archive, not learned memory. See [agent design](docs/AGENT_WORKFLOW.md).
 
 ## Imports and freshness
 
 Use the dashboard's blank templates or paste JSON. Import a complete snapshot containing teams, rostered players, free agents and waiver players. Confirmation replaces the current view and retains older snapshots. JSON supports stats, empty teams and optional news; CSV supports roster/availability rows only.
 
 See [import schema](docs/IMPORTS.md). Effective timestamps must have timezones and cannot be in the future. Uploading old data does not make it fresh. Current freshness thresholds are 24/48 hours; move tools block any data that is not FRESH. Failed imports do not update the last-success timestamp.
+
+Existing installations: run `python scripts/setup_local.py` after pulling updates to apply database migrations without overwriting `.env` or existing imports. Historical reports retain their original evidence and must not be treated as current recommendations.
 
 ## Verification
 

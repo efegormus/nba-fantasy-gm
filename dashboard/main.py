@@ -42,6 +42,67 @@ def api(method, path, payload=None):
     return None
 
 
+def render_report(report, prefix="current"):
+    st.caption(
+        f"Engine: {report['engine']} · Data effective: {report['data_effective_at'] or 'Unavailable'}"
+    )
+    if report["warning"]:
+        st.warning(report["warning"])
+    st.info(report["summary"])
+    observations = report["observations"]
+    for key, title in [
+        ("waiver_scout", "Waiver / add-drop"),
+        ("trade_analyzer", "Mutually beneficial trades"),
+        ("news_monitor", "News and injuries"),
+    ]:
+        observation = observations.get(key)
+        if observation is None:
+            continue
+        st.markdown(f"#### {title}")
+        if observation.get("reason"):
+            st.write(observation["reason"])
+        if observation.get("risk"):
+            st.caption(observation["risk"])
+        for index, candidate in enumerate(observation.get("candidates", []), 1):
+            with st.expander(f"Alternative {index} · Requires manual review", expanded=index == 1):
+                if key == "waiver_scout":
+                    st.text(f"Add {candidate['add_name']} · Drop {candidate['drop_name']}")
+                    st.caption(f"Availability at import: {candidate['availability_at_import']}")
+                    st.dataframe(
+                        [candidate["category_changes"]],
+                        hide_index=True,
+                        key=f"{prefix}:waiver:{index}",
+                    )
+                else:
+                    st.text(
+                        f"Offer {candidate['offer_name']} · Request {candidate['request_name']}"
+                    )
+                    st.caption(f"Partner team: {candidate['partner_team_id']}")
+                    st.dataframe(
+                        [
+                            {"Team": "Yours", **candidate["your_category_changes"]},
+                            {"Team": "Partner", **candidate["partner_category_changes"]},
+                        ],
+                        hide_index=True,
+                        key=f"{prefix}:trade:{index}",
+                    )
+        if observation.get("status") == "evaluated" and not observation.get("candidates"):
+            st.write("No positive alternatives found by the current heuristic.")
+        if observation.get("search_truncated"):
+            st.caption("Search limit reached; some alternatives were not evaluated.")
+        for event in observation.get("events", []):
+            st.text(event["headline"])
+            st.caption(
+                f"Published: {event['published_at']} · Verification: {event['verification']}"
+            )
+            st.link_button(
+                "View report source", event["source_url"], key=f"{prefix}:news:{event['id']}"
+            )
+    with st.expander("Analysis steps and calculation details"):
+        st.dataframe(report["trace"], hide_index=True, key=f"{prefix}:trace")
+        st.json(observations)
+
+
 status = api("GET", "/league")
 if status is None:
     st.stop()
@@ -59,22 +120,48 @@ if page == "GM Workspace":
         with st.spinner("Checking league evidence and running read-only tools…"):
             report = api("POST", "/agent/run", {"question": question, "use_local_ai": use_local_ai})
         if report:
-            st.caption(
-                f"Engine: {report['engine']} · Data effective: {report['data_effective_at'] or 'Unavailable'}"
-            )
-            if report["warning"]:
-                st.warning(report["warning"])
-            st.info(report["summary"])
-            st.dataframe(report["trace"], hide_index=True)
-            for name, observation in report["observations"].items():
-                with st.expander(name.replace("_", " ").title(), expanded=True):
-                    st.json(observation)
-            st.download_button(
-                "Download GM report",
-                json.dumps(report, indent=2),
-                "gm-report.json",
-                "application/json",
-            )
+            st.success(f"Saved analysis #{report['run_id']}")
+            render_report(report)
+    st.subheader("Analysis history")
+    st.caption(
+        "Saved results preserve the original evidence and settings. They are not current recommendations."
+    )
+    history = api("GET", "/agent/runs")
+    runs = history["runs"] if history else []
+    if runs:
+        labels = {
+            row["id"]: f"#{row['id']} · {row['created_at']} · {row['question'][:80]}"
+            for row in runs
+        }
+        selected = st.selectbox(
+            "Saved analysis",
+            [None, *labels],
+            format_func=lambda key: labels.get(key, "Choose a saved analysis"),
+            key=f"history:{mode}:{status['league_id']}",
+        )
+        if selected is not None:
+            saved = api("GET", f"/agent/runs/{selected}")
+            if saved:
+                st.warning(
+                    "Historical report: availability, rules and injuries may have changed. Run a new analysis before making decisions."
+                )
+                render_report(saved["report"], prefix=f"history:{selected}")
+                with st.expander("Original evidence and settings"):
+                    st.json(
+                        {
+                            "snapshot_id": saved["snapshot_id"],
+                            "context": saved["context"],
+                            "evidence": saved["evidence"],
+                        }
+                    )
+                st.download_button(
+                    "Download saved report and evidence",
+                    json.dumps(saved, indent=2),
+                    f"gm-run-{selected}.json",
+                    "application/json",
+                )
+    else:
+        st.write("No saved analyses for this league and mode yet.")
     st.stop()
 
 if page == "My Team":
